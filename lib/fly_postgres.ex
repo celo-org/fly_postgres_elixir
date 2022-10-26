@@ -165,11 +165,17 @@ defmodule Fly.Postgres do
   def rpc_and_wait(module, func, args, opts \\ []) do
     rpc_timeout = Keyword.get(opts, :rpc_timeout, 5_000)
 
-    {lsn_value, result} =
-      Fly.RPC.rpc_region(:primary, __MODULE__, :__rpc_lsn__, [module, func, args, opts],
-        timeout: rpc_timeout
-      )
+    case Fly.RPC.rpc_region(:primary, __MODULE__, :__rpc_lsn__, [module, func, args, opts],
+           timeout: rpc_timeout
+         ) do
 
+      {:error, _} = e -> e
+
+      result -> wait_for_lsn(result, module, func, args, opts)
+    end
+  end
+
+  defp wait_for_lsn({lsn_value, result}, module, func, args, opts) do
     case Fly.Postgres.LSN.Tracker.request_and_await_notification(lsn_value, opts) do
       :ready ->
         result
@@ -184,13 +190,17 @@ defmodule Fly.Postgres do
   # Private function executed on the primary
   def __rpc_lsn__(module, func, args, opts) do
     # Execute the MFA in the primary region
-    result = apply(module, func, args)
+    case apply(module, func, args) do
+      {:error, _} = error_result ->
+        error_result
 
-    # Use `local_repo` here to read most recent WAL value from DB that the
-    # caller needs to wait for replication to complete in order to continue and
-    # have access to the data.
-    lsn_value = Fly.Postgres.LSN.current_wal_insert(Fly.Postgres.local_repo(opts))
+      result ->
+        # Use `local_repo` here to read most recent WAL value from DB that the
+        # caller needs to wait for replication to complete in order to continue and
+        # have access to the data.
+        lsn_value = Fly.Postgres.LSN.current_wal_insert(Fly.Postgres.local_repo(opts))
 
-    {lsn_value, result}
+        {lsn_value, result}
+    end
   end
 end
