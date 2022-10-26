@@ -5,6 +5,7 @@ defmodule Fly.Postgres do
   Fly.io.
   """
   require Logger
+  import Fly.Postgres.Elixir.Telemetry
 
   @type env :: :prod | :dev | :test
 
@@ -163,14 +164,23 @@ defmodule Fly.Postgres do
   - `:replication_timeout` - Timeout duration to wait for replication to complete.
   """
   def rpc_and_wait(module, func, args, opts \\ []) do
+    wrap(:rpc_and_wait, _rpc_and_wait(module, func, args, opts))
+  end
+
+  defp _rpc_and_wait(module, func, args, opts) do
     rpc_timeout = Keyword.get(opts, :rpc_timeout, 5_000)
-    start_time = System.os_time(:millisecond)
 
-    {lsn_value, result} =
-      Fly.RPC.rpc_region(:primary, __MODULE__, :__rpc_lsn__, [module, func, args, opts],
-        timeout: rpc_timeout
-      )
+    case Fly.RPC.rpc_region(:primary, __MODULE__, :__rpc_lsn__, [module, func, args, opts],
+           timeout: rpc_timeout
+         ) do
 
+      {:error, _} = e -> e
+
+      result -> wait_for_lsn(result, module, func, args, opts)
+    end
+  end
+
+  defp wait_for_lsn({lsn_value, result}, module, func, args, opts) do
     case Fly.Postgres.LSN.Tracker.request_and_await_notification(lsn_value, opts) do
       :ready ->
         verbose_remote_log(:info, fn ->
@@ -193,8 +203,12 @@ defmodule Fly.Postgres do
   @spec __rpc_lsn__(module(), func :: atom(), args :: [any()], opts :: Keyword.t()) ::
           {:wal_lookup_failure | Fly.Postgres.LSN.t(), any()}
   def __rpc_lsn__(module, func, args, opts) do
+    event(:remote_exec, %{}, %{module: module, func: func |> to_string()})
+
     # Execute the MFA in the primary region
-    result = apply(module, func, args)
+    case apply(module, func, args) do
+      {:error, _} = error_result ->
+        error_result
 
     # Use `local_repo` here to read most recent WAL value from DB that the
     # caller needs to wait for replication to complete in order to continue and
@@ -212,7 +226,8 @@ defmodule Fly.Postgres do
           :wal_lookup_failure
       end
 
-    {lsn_value, result}
+        {lsn_value, result}
+    end
   end
 
   @doc """
@@ -232,5 +247,15 @@ defmodule Fly.Postgres do
     if Application.get_env(:fly_postgres, :verbose_logging) && !Fly.is_primary?() do
       Logger.log(kind, func)
     end
+  end
+
+  @doc false
+  def telemetry_event(event, measurements \\ %{}, meta \\ %{})
+  def telemetry_event(event_names, measurements, meta) when is_list(event_names) do
+    :telemetry.execute([:fly_postgres | event_names], measurements, meta)
+  end
+
+  def telemetry_event(event_name, measurements, meta) do
+    :telemetry.execute([:fly_postgres, event_name], measurements, meta)
   end
 end

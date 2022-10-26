@@ -52,6 +52,8 @@ defmodule Fly.Repo do
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts] do
+      import Fly.Postgres.Elixir.Telemetry
+
       @local_repo Keyword.fetch!(opts, :local_repo)
       @timeout Keyword.get(opts, :timeout, 5_000)
       @replication_timeout Keyword.get(opts, :replication_timeout, 5_000)
@@ -230,6 +232,15 @@ defmodule Fly.Repo do
       end
 
       @doc """
+      Loads data into a schema or a map.
+
+      See `Ecto.Repo.load/2` for full documentation.
+      """
+      def load(schema_or_map, data) do
+        unquote(__MODULE__).__exec_local__(:load, [schema_or_map, data])
+      end
+
+      @doc """
       Fetches a single result from the query.
 
       See `Ecto.Repo.one/2` for full documentation.
@@ -324,8 +335,8 @@ defmodule Fly.Repo do
 
       See `Ecto.Repo.rollback/1` for full documentation.
       """
-      def rollback(value) do
-        unquote(__MODULE__).__exec_local__(:rollback, [value])
+      def rollback(value, opts \\ []) do
+        unquote(__MODULE__).__exec_on_primary__(:rollback, [value], opts)
       end
 
       @doc """
@@ -348,7 +359,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.transaction/2` for full documentation.
       """
       def transaction(fun_or_multi, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:transaction, [fun_or_multi, opts])
+        unquote(__MODULE__).__exec_on_primary__(:transaction, [fun_or_multi], opts)
       end
 
       @doc """
@@ -379,10 +390,14 @@ defmodule Fly.Repo do
       end
 
       def __exec_local__(func, args) do
+        event(:local_exec, %{}, %{func: func |> to_string()})
+
         apply(@local_repo, func, args)
       end
 
       def __exec_on_primary__(func, args, opts) do
+        event(:primary_exec, %{}, %{func: func |> to_string()})
+
         # Default behavior is to wait for replication. If `:await` is set to
         # false/falsey then skip the LSN query and waiting for replication.
         if Keyword.get(opts, :await, true) do
