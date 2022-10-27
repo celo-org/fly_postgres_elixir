@@ -386,13 +386,13 @@ defmodule Fly.Repo do
       end
 
       def __exec_local__(func, args) do
-        telemetry_event(:local_exec, %{func: func |> to_string()})
+        :telemetry.execute([:fly_postgres, :local_exec], %{func: func |> to_string()})
 
         apply(@local_repo, func, args)
       end
 
       def __exec_on_primary__(func, args, opts) do
-        telemetry_event(:primary_exec, %{func: func |> to_string()})
+        :telemetry.execute([:fly_postgres, :primary_exec], %{func: func |> to_string()})
 
         # Default behavior is to wait for replication. If `:await` is set to
         # false/falsey then skip the LSN query and waiting for replication.
