@@ -59,6 +59,8 @@ defmodule Fly.Repo do
       # Here we are injecting as little as possible then calling out to the
       # library functions.
 
+      import Fly.Postgres, only: [telemetry_event: 3]
+
       @doc """
       See `Ecto.Repo.config/0` for full documentation.
       """
@@ -384,10 +386,14 @@ defmodule Fly.Repo do
       end
 
       def __exec_local__(func, args) do
+        telemetry_event(:local_exec, %{func: func |> to_string()})
+
         apply(@local_repo, func, args)
       end
 
       def __exec_on_primary__(func, args, opts) do
+        telemetry_event(:primary_exec, %{func: func |> to_string()})
+
         # Default behavior is to wait for replication. If `:await` is set to
         # false/falsey then skip the LSN query and waiting for replication.
         if Keyword.get(opts, :await, true) do
