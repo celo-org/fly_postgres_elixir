@@ -33,7 +33,7 @@ defmodule FlyPostgres.MixProject do
     [
       {:fly_rpc, "~> 0.1.5"},
       {:postgrex, ">= 0.0.0"},
-      {:telemetry, "~> 1.0"},
+      {:telemetry, "~> 0.4.3"},
       {:ex_doc, "~> 0.25", only: :dev}
     ]
   end
