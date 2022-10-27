@@ -59,8 +59,6 @@ defmodule Fly.Repo do
       # Here we are injecting as little as possible then calling out to the
       # library functions.
 
-      import Fly.Postgres, only: [telemetry_event: 3]
-
       @doc """
       See `Ecto.Repo.config/0` for full documentation.
       """
