@@ -205,11 +205,12 @@ defmodule Fly.Postgres do
   end
 
   @doc false
-  def telemetry_event(event_names, measurements \\ %{}, meta \\%{}) when is_list(event_names) do
+  def telemetry_event(event, measurements \\ %{}, meta \\ %{})
+  def telemetry_event(event_names, measurements, meta) when is_list(event_names) do
     :telemetry.execute([:fly_postgres | event_names], measurements, meta)
   end
 
-  def telemetry_event(event_name, measurements \\ %{}, meta \\%{}) do
+  def telemetry_event(event_name, measurements, meta) do
     :telemetry.execute([:fly_postgres, event_name], measurements, meta)
   end
 end
