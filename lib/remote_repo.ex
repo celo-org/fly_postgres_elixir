@@ -1,53 +1,6 @@
-defmodule Fly.Repo do
+defmodule Fly.RemoteRepo do
   @moduledoc """
-  This wraps the built-in `Ecto.Repo` functions to proxy writable functions like
-  insert, update and delete to be performed on the an Elixir node in the primary
-  region.
-
-  To use it, rename your existing repo module and add a new module with the same
-  name as your original repo like this.
-
-
-  Original code:
-
-  ```elixir
-  defmodule MyApp.Repo do
-    use Ecto.Repo,
-      otp_app: :my_app,
-      adapter: Ecto.Adapters.Postgres
-  end
-  ```
-
-  Changes to:
-
-  ```elixir
-  defmodule MyApp.Repo.Local do
-    use Ecto.Repo,
-      otp_app: :my_app,
-      adapter: Ecto.Adapters.Postgres
-
-    # Dynamically configure the database url based for runtime environment.
-    def init(_type, config) do
-      {:ok, Keyword.put(config, :url, Fly.Postgres.database_url())}
-    end
-  end
-
-  defmodule Core.Repo do
-    use Fly.Repo, local_repo: MyApp.Repo.Local
-  end
-  ```
-
-  Using the same name allows your existing code to seamlessly work with the new
-  repo.
-
-  When explicitly managing database transactions like using Multi or
-  `start_transaction`, when used to modify data, those functions should be
-  called by an RPC so they run in the primary region.
-
-  ```elixir
-  Fly.RPC.rpc_region(:primary, MyModule, :my_function_that_uses_multi, [my,
-  args], opts)
-  ```
+  As Fly.Repo but invokes everything on the primary region.
   """
 
   defmacro __using__(opts) do
@@ -55,9 +8,6 @@ defmodule Fly.Repo do
       @local_repo Keyword.fetch!(opts, :local_repo)
       @timeout Keyword.get(opts, :timeout, 5_000)
       @replication_timeout Keyword.get(opts, :replication_timeout, 5_000)
-
-      # Here we are injecting as little as possible then calling out to the
-      # library functions.
 
       @doc """
       See `Ecto.Repo.config/0` for full documentation.
@@ -73,7 +23,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.aggregate/3` for full documentation.
       """
       def aggregate(queryable, aggregate, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:aggregate, [queryable, aggregate, opts])
+        unquote(__MODULE__).__exec_on_primary__(:aggregate, [queryable, aggregate, opts])
       end
 
       @doc """
@@ -82,7 +32,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.aggregate/4` for full documentation.
       """
       def aggregate(queryable, aggregate, field, opts) do
-        unquote(__MODULE__).__exec_local__(:aggregate, [queryable, aggregate, field, opts])
+        unquote(__MODULE__).__exec_on_primary__(:aggregate, [queryable, aggregate, field, opts])
       end
 
       @doc """
@@ -91,7 +41,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.all/2` for full documentation.
       """
       def all(queryable, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:all, [queryable, opts])
+        unquote(__MODULE__).__exec_on_primary__(:all, [queryable, opts])
       end
 
       @doc """
@@ -127,7 +77,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.exists?/2` for full documentation.
       """
       def exists?(queryable, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:exists?, [queryable, opts])
+        unquote(__MODULE__).__exec_on_primary__(:exists?, [queryable, opts])
       end
 
       @doc """
@@ -136,7 +86,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.get/3` for full documentation.
       """
       def get(queryable, id, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:get, [queryable, id, opts])
+        unquote(__MODULE__).__exec_on_primary__(:get, [queryable, id, opts])
       end
 
       @doc """
@@ -145,7 +95,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.get!/3` for full documentation.
       """
       def get!(queryable, id, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:get!, [queryable, id, opts])
+        unquote(__MODULE__).__exec_on_primary__(:get!, [queryable, id, opts])
       end
 
       @doc """
@@ -154,7 +104,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.get_by/3` for full documentation.
       """
       def get_by(queryable, clauses, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:get_by, [queryable, clauses, opts])
+        unquote(__MODULE__).__exec_on_primary__(:get_by, [queryable, clauses, opts])
       end
 
       @doc """
@@ -163,7 +113,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.get_by!/3` for full documentation.
       """
       def get_by!(queryable, clauses, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:get_by!, [queryable, clauses, opts])
+        unquote(__MODULE__).__exec_on_primary__(:get_by!, [queryable, clauses, opts])
       end
 
       @doc """
@@ -235,7 +185,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.load/2` for full documentation.
       """
       def load(schema_or_map, data) do
-        unquote(__MODULE__).__exec_local__(:load, [schema_or_map, data])
+        unquote(__MODULE__).__exec_on_primary__(:load, [schema_or_map, data])
       end
 
       @doc """
@@ -244,7 +194,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.one/2` for full documentation.
       """
       def one(queryable, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:one, [queryable, opts])
+        unquote(__MODULE__).__exec_on_primary__(:one, [queryable, opts])
       end
 
       @doc """
@@ -253,7 +203,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.one!/2` for full documentation.
       """
       def one!(queryable, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:one!, [queryable, opts])
+        unquote(__MODULE__).__exec_on_primary__(:one!, [queryable, opts])
       end
 
       @doc """
@@ -262,7 +212,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.preload/3` for full documentation.
       """
       def preload(structs_or_struct_or_nil, preloads, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:preload, [
+        unquote(__MODULE__).__exec_on_primary__(:preload, [
           structs_or_struct_or_nil,
           preloads,
           opts
@@ -275,7 +225,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.preload/3` for full documentation.
       """
       def prepare_query(operation, query, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:prepare_query, [operation, query, opts])
+        unquote(__MODULE__).__exec_on_primary__(:prepare_query, [operation, query, opts])
       end
 
       @doc """
@@ -284,7 +234,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.put_dynamic_repo/1` for full documentation.
       """
       def put_dynamic_repo(name_or_pid) do
-        unquote(__MODULE__).__exec_local__(:put_dynamic_repo, [name_or_pid])
+        unquote(__MODULE__).__exec_on_primary__(:put_dynamic_repo, [name_or_pid])
       end
 
       @doc """
@@ -293,7 +243,7 @@ defmodule Fly.Repo do
       See `Ecto.Adapters.SQL.query/4` for full documentation.
       """
       def query(query, params \\ [], opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:query, [query, params, opts])
+        unquote(__MODULE__).__exec_on_primary__(:query, [query, params, opts])
       end
 
       @doc """
@@ -302,7 +252,7 @@ defmodule Fly.Repo do
       See `Ecto.Adapters.SQL.query!/4` for full documentation.
       """
       def query!(query, params \\ [], opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:query!, [query, params, opts])
+        unquote(__MODULE__).__exec_on_primary__(:query!, [query, params, opts])
       end
 
       @doc """
@@ -311,7 +261,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.reload/2` for full documentation.
       """
       def reload(struct_or_structs, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:reload, [struct_or_structs, opts])
+        unquote(__MODULE__).__exec_on_primary__(:reload, [struct_or_structs, opts])
       end
 
       @doc """
@@ -320,7 +270,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.reload!/2` for full documentation.
       """
       def reload!(struct_or_structs, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:reload!, [struct_or_structs, opts])
+        unquote(__MODULE__).__exec_on_primary__(:reload!, [struct_or_structs, opts])
       end
 
       @doc """
@@ -332,7 +282,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.rollback/1` for full documentation.
       """
       def rollback(value) do
-        unquote(__MODULE__).__exec_local__(:rollback, [value])
+        unquote(__MODULE__).__exec_on_primary__(:rollback, [value])
       end
 
       @doc """
@@ -341,7 +291,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.stream/2` for full documentation.
       """
       def stream(queryable, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:stream, [queryable, opts])
+        unquote(__MODULE__).__exec_on_primary__(:stream, [queryable, opts])
       end
 
       @doc """
@@ -353,7 +303,7 @@ defmodule Fly.Repo do
       See `Ecto.Repo.transaction/2` for full documentation.
       """
       def transaction(fun_or_multi, opts \\ []) do
-        unquote(__MODULE__).__exec_local__(:transaction, [fun_or_multi, opts])
+        unquote(__MODULE__).__exec_on_primary__(:transaction, [fun_or_multi, opts])
       end
 
       @doc """
@@ -381,12 +331,6 @@ defmodule Fly.Repo do
       """
       def update_all(queryable, updates, opts \\ []) do
         unquote(__MODULE__).__exec_on_primary__(:update_all, [queryable, updates, opts], opts)
-      end
-
-      def __exec_local__(func, args) do
-        :telemetry.execute([:fly_postgres, :local_exec], %{}, %{func: func |> to_string()})
-
-        apply(@local_repo, func, args)
       end
 
       def __exec_on_primary__(func, args, opts) do
