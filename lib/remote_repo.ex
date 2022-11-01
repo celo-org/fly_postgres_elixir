@@ -216,7 +216,7 @@ defmodule Fly.RemoteRepo do
           structs_or_struct_or_nil,
           preloads,
           opts
-        ])
+        ], opts)
       end
 
       @doc """
@@ -282,7 +282,7 @@ defmodule Fly.RemoteRepo do
       See `Ecto.Repo.rollback/1` for full documentation.
       """
       def rollback(value) do
-        unquote(__MODULE__).__exec_on_primary__(:rollback, [value], opts)
+        unquote(__MODULE__).__exec_on_primary__(:rollback, [value], [])
       end
 
       @doc """
