@@ -169,18 +169,13 @@ defmodule Fly.Postgres do
 
   defp _rpc_and_wait(module, func, args, opts) do
     rpc_timeout = Keyword.get(opts, :rpc_timeout, 5_000)
+    start_time = System.os_time(:millisecond)
 
-    case Fly.RPC.rpc_region(:primary, __MODULE__, :__rpc_lsn__, [module, func, args, opts],
-           timeout: rpc_timeout
-         ) do
+    {lsn_value, result} =
+      Fly.RPC.rpc_region(:primary, __MODULE__, :__rpc_lsn__, [module, func, args, opts],
+        timeout: rpc_timeout
+      )
 
-      {:error, _} = e -> e
-
-      result -> wait_for_lsn(result, module, func, args, opts)
-    end
-  end
-
-  defp wait_for_lsn({lsn_value, result}, module, func, args, opts) do
     case Fly.Postgres.LSN.Tracker.request_and_await_notification(lsn_value, opts) do
       :ready ->
         verbose_remote_log(:info, fn ->
@@ -206,9 +201,7 @@ defmodule Fly.Postgres do
     event(:remote_exec, %{}, %{module: module, func: func |> to_string()})
 
     # Execute the MFA in the primary region
-    case apply(module, func, args) do
-      {:error, _} = error_result ->
-        error_result
+    result = apply(module, func, args)
 
     # Use `local_repo` here to read most recent WAL value from DB that the
     # caller needs to wait for replication to complete in order to continue and
@@ -226,8 +219,7 @@ defmodule Fly.Postgres do
           :wal_lookup_failure
       end
 
-        {lsn_value, result}
-    end
+    {lsn_value, result}
   end
 
   @doc """
@@ -247,15 +239,5 @@ defmodule Fly.Postgres do
     if Application.get_env(:fly_postgres, :verbose_logging) && !Fly.is_primary?() do
       Logger.log(kind, func)
     end
-  end
-
-  @doc false
-  def telemetry_event(event, measurements \\ %{}, meta \\ %{})
-  def telemetry_event(event_names, measurements, meta) when is_list(event_names) do
-    :telemetry.execute([:fly_postgres | event_names], measurements, meta)
-  end
-
-  def telemetry_event(event_name, measurements, meta) do
-    :telemetry.execute([:fly_postgres, event_name], measurements, meta)
   end
 end
