@@ -55,8 +55,8 @@ defmodule Fly.Repo do
       import Fly.Postgres.Elixir.Telemetry
 
       @local_repo Keyword.fetch!(opts, :local_repo)
-      @timeout Keyword.get(opts, :timeout, 5_000)
-      @replication_timeout Keyword.get(opts, :replication_timeout, 5_000)
+      @timeout Keyword.get(opts, :timeout, :timer.minutes(2))
+      @replication_timeout Keyword.get(opts, :replication_timeout, :timer.seconds(30))
 
       # Here we are injecting as little as possible then calling out to the
       # library functions.
