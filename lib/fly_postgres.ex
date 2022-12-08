@@ -186,7 +186,7 @@ defmodule Fly.Postgres do
 
       {:error, :timeout} ->
         Logger.error(
-          "LSN RPC notification timeout calling #{Fly.mfa_string(module, func, args)}}"
+          "LSN RPC notification timeout calling #{Fly.mfa_string(module, func, args)} after #{inspect(System.os_time(:millisecond) - start_time)}ms"
         )
 
         exit(:timeout)
