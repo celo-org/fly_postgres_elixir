@@ -56,7 +56,7 @@ defmodule Fly.Repo do
 
       @local_repo Keyword.fetch!(opts, :local_repo)
       @timeout Keyword.get(opts, :timeout, :timer.minutes(2))
-      @replication_timeout Keyword.get(opts, :replication_timeout, :timer.seconds(30))
+      @replication_timeout Keyword.get(opts, :replication_timeout, :timer.minutes(2))
 
       # Here we are injecting as little as possible then calling out to the
       # library functions.
