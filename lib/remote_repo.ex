@@ -236,7 +236,7 @@ defmodule Fly.RemoteRepo do
 
       See `Ecto.Repo.load/2` for full documentation.
       """
-      def load(schema_or_map, data) do
+      def load(schema_or_map, data, opts \\ []) do
         unquote(__MODULE__).__exec_on_primary__(:load, [schema_or_map, data], opts)
       end
 
@@ -285,7 +285,7 @@ defmodule Fly.RemoteRepo do
 
       See `Ecto.Repo.put_dynamic_repo/1` for full documentation.
       """
-      def put_dynamic_repo(name_or_pid) do
+      def put_dynamic_repo(name_or_pid, opts \\ []) do
         unquote(__MODULE__).__exec_on_primary__(:put_dynamic_repo, [name_or_pid], opts)
       end
 
